@@ -90,6 +90,21 @@ def employee_creation(creation: employee_detail,current_user: admin_detail = Sec
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
     
+@user_app.get("/Employee_or_admin_list")
+def employee_list(Employee_or_admin:str,session:Session=Depends(get_session)):
+    employee_or_admin = session.exec(select(Admin).where(Admin.email == Employee_or_admin)).first()
+    if employee_or_admin:
+        return{"Role": "Admin",
+            "Details": {
+                "email": employee_or_admin.email,
+                "first_name": employee_or_admin.user_first_name,
+                "last_name": employee_or_admin.user_last_name,
+                "phone_number": employee_or_admin.phone_number
+            }}
+    else:
+        employee_or_admin = session.exec(select(Employee).where(Employee.email == Employee_or_admin)).first()
+        return{"Details":employee_or_admin}
+
 @user_app.put("/admin_profile_update")
 def admin_profile_update(data: Adminupdate, current_user: admin_detail = Security(get_current_user), session: Session = Depends(get_session)):
     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
@@ -142,6 +157,15 @@ def update_profile(yourcurrentemail:str, data: Userupdate, current_user: admin_d
     session.refresh(employee)
 
     return employee
-#add current user
-# create separate table for admin(hr) and employees
-#add api end point to create new employee by admin
+
+@user_app.delete("/Employee_or_admin_deletion")
+def Employee_deletion(Employee_or_admin_email:str, current_user: admin_detail = Security(get_current_user), session: Session = Depends(get_session)):
+    admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
+    if not admin:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
+    data = session.exec(select(Employee).where(Employee.email == Employee_or_admin_email)).first()
+    if not data:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Employee detail is not found")
+    session.delete(data)
+    session.commit()
+    return {"Message":f"Employee with email {Employee_or_admin_email} has been deleted successfully"}
