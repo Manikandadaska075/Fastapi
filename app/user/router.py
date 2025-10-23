@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from jose import jwt,JWTError
 from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
-from app.user.schemas import admin_detail,TokenResponse,login_detail,Userupdate,employee_detail,Adminupdate
+from app.user.schemas import adminDetail,tokenResponse,loginDetail,userUpdate,employeeDetail,adminUpdate
 
 SECRET_KEY = "12354477463543"
 ALGORITHM = "HS256"
@@ -51,8 +51,8 @@ def get_current_user(token: str = Depends(oauth2_scheme),session: Session = Depe
 
 user_app = APIRouter()
 
-@user_app.post("/admin_registration")
-def get_admin_dashboard(user: admin_detail, session: Session = Depends(get_session)):
+@user_app.post("/admin/registration")
+def get_admin_dashboard(user: adminDetail, session: Session = Depends(get_session)):
     if user.designation.lower() != "hr":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -61,28 +61,28 @@ def get_admin_dashboard(user: admin_detail, session: Session = Depends(get_sessi
     existing_user = session.exec(select(Admin).where(Admin.email == user.email)).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User already taken")
-    db = Admin(email=user.email,password=hash_password(user.password),designation= user.designation,is_superuser=user.is_superuser)
+    db = Admin(email=user.email,userFirstName=user.userFirstName,userLastName=user.userLastName,password=hash_password(user.password),designation=user.designation,phoneNumber=user.phoneNumber,isSuperUser=user.isSuperUser,address=user.address)
     session.add(db)
     session.commit()
     session.refresh(db)
     return db
 
-@user_app.post("/login", response_model=TokenResponse)
-def login(form_data: login_detail, session: Session = Depends(get_session)):
+@user_app.post("/admin/login", response_model=tokenResponse)
+def login(form_data: loginDetail, session: Session = Depends(get_session)):
     user = session.exec(select(Admin).where(Admin.email == form_data.email)).first()
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
-    access_token = create_access_token(data={"sub": user.email})
-    return {"access_token": access_token, "token_type": "bearer"}
+    accessToken = create_access_token(data={"sub": user.email})
+    return {"accessToken": accessToken, "tokenType": "bearer"}
 
-@user_app.post("/employee_creation")
-def employee_creation(creation: employee_detail,current_user: admin_detail = Security(get_current_user),session:Session=Depends(get_session)):
+@user_app.post("/employee/creation")
+def employee_creation(creation: employeeDetail,current_user: adminDetail = Security(get_current_user),session:Session=Depends(get_session)):
     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
     if admin:
         employee = session.exec(select(Employee).where(Employee.email == creation.email)).first()
         if employee:
             raise HTTPException(status_code=400, detail="User already taken")
-        db = Employee(email=creation.email,user_first_name=creation.user_first_name,user_last_name=creation.user_last_name,designation= creation.designation,phone_number=creation.phone_number,address=creation.address)
+        db = Employee(email=creation.email,userFirstName=creation.userFirstName, userLastName=creation.userLastName,designation= creation.designation,phoneNumber=creation.phoneNumber,address=creation.address)
         session.add(db)
         session.commit()
         session.refresh(db)
@@ -90,82 +90,80 @@ def employee_creation(creation: employee_detail,current_user: admin_detail = Sec
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
     
-@user_app.get("/Employee_or_admin_list")
-def employee_list(Employee_or_admin:str,session:Session=Depends(get_session)):
-    employee_or_admin = session.exec(select(Admin).where(Admin.email == Employee_or_admin)).first()
+@user_app.get("/admin/employee/list")
+def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
+    employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail)).first()
     if employee_or_admin:
         return{"Role": "Admin",
             "Details": {
                 "email": employee_or_admin.email,
-                "first_name": employee_or_admin.user_first_name,
-                "last_name": employee_or_admin.user_last_name,
-                "phone_number": employee_or_admin.phone_number
+                "first_name": employee_or_admin.userFirstName,
+                "last_name": employee_or_admin.userLastName,
+                "phone_number": employee_or_admin.phoneNumber
             }}
     else:
-        employee_or_admin = session.exec(select(Employee).where(Employee.email == Employee_or_admin)).first()
+        employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail)).first()
         return{"Details":employee_or_admin}
 
-@user_app.put("/admin_profile_update")
-def admin_profile_update(data: Adminupdate, current_user: admin_detail = Security(get_current_user), session: Session = Depends(get_session)):
+@user_app.patch("/admin/profile/update")
+def admin_profile_update(data: adminUpdate,current_user: adminDetail = Security(get_current_user),session: Session = Depends(get_session)):
+
     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
     if not admin:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
-    if data.email is not None:
-        admin.email = data.email
-    if data.user_first_name is not None:
-        admin.user_first_name = data.user_first_name
-    if data.user_last_name is not None:
-        admin.user_last_name = data.user_last_name
-    if data.designation is not None:
-        admin.designation = data.designation
-    if data.phone_number is not None:
-        admin.phone_number = data.phone_number
-    if data.address is not None:
-        admin.address = data.address
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin is not logged in")
+
+    update_data = data.model_dump(exclude_unset=True)
+
+    for key, value in update_data.items():
+        setattr(admin, key, value)
 
     session.add(admin)
     session.commit()
     session.refresh(admin)
 
-    return admin
+    return {"message": "Admin profile updated successfully", "admin": admin}
 
-@user_app.put("/profile_update")
-def update_profile(yourcurrentemail:str, data: Userupdate, current_user: admin_detail = Security(get_current_user), session: Session = Depends(get_session)):
+@user_app.patch("/employee/profile/update")
+def update_profile(yourcurrentemail: str, data: userUpdate, current_user: adminDetail = Security(get_current_user),session: Session = Depends(get_session)):
+
     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
     if not admin:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin is not logged in")
 
     employee = session.exec(select(Employee).where(Employee.email == yourcurrentemail)).first()
     if not employee:
         raise HTTPException(status_code=404, detail="User not found")
-    
-    if data.email is not None:
-        employee.email = data.email
-    if data.user_first_name is not None:
-        employee.user_first_name = data.user_first_name
-    if data.user_last_name is not None:
-        employee.user_last_name = data.user_last_name
-    if data.designation is not None:
-        employee.designation = data.designation
-    if data.phone_number is not None:
-        employee.phone_number = data.phone_number
-    if data.address is not None:
-        employee.address = data.address
+
+    update_data = data.model_dump(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(employee, key, value)
 
     session.add(employee)
     session.commit()
     session.refresh(employee)
+    return {"message": "Profile updated successfully", "employee": employee}
 
-    return employee
-
-@user_app.delete("/Employee_or_admin_deletion")
-def Employee_deletion(Employee_or_admin_email:str, current_user: admin_detail = Security(get_current_user), session: Session = Depends(get_session)):
+@user_app.delete("/admin/employee/deletion")
+def delete_employee_or_admin(
+    adminOrEmployeeEmail: str,
+    current_user: adminDetail = Security(get_current_user),
+    session: Session = Depends(get_session)):
+    
     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
     if not admin:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
-    data = session.exec(select(Employee).where(Employee.email == Employee_or_admin_email)).first()
-    if not data:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Employee detail is not found")
-    session.delete(data)
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin is not logged in")
+
+    record = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail)).first()
+    if not record:
+        record = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail)).first()
+
+    if not record:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No admin or employee found with email: {adminOrEmployeeEmail}")
+
+    record.isActive = False
+    record.scheduledDeletion = datetime.utcnow() + timedelta(hours=3)
+    session.add(record)
     session.commit()
-    return {"Message":f"Employee with email {Employee_or_admin_email} has been deleted successfully"}
+
+    return {"message": f"User with email '{adminOrEmployeeEmail}' marked inactive. Will be deleted after 3 hours."}
+

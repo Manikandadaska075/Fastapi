@@ -1,27 +1,35 @@
 from sqlmodel import SQLModel, Field
 from typing import *
+from datetime import time, date , datetime
 
 class Admin(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_first_name: Optional[str]
-    user_last_name : Optional[str] 
+    userFirstName: str
+    userLastName : str 
     designation :str
     password: str
     email: str
-    address: Optional[str]
-    phone_number: Optional[str]
-    is_active: bool = True
-    is_superuser: bool = False 
+    address: Optional[str] = None
+    phoneNumber: str
+    isActive: bool = True
+    isSuperUser: bool = False 
+    scheduledDeletion: Optional[datetime] = None
 
 class Employee(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
-    user_first_name: Optional[str]
-    user_last_name : Optional[str]
-    designation :Optional[str]
-    email: Optional[str]
-    address: Optional[str]
-    phone_number: Optional[str]
-    is_active: bool = True
+    userFirstName: str
+    userLastName : str
+    designation : str
+    email: str
+    address: Optional[str] = None
+    phoneNumber:str
+    isActive: bool = True
+    scheduledDeletion: Optional[datetime] = None
 
-    
-
+class LoginDetails(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    userEmail: str
+    logInTime: time
+    logOutTime: Optional[time] = None
+    dateOfLoginLogOut: date 
+    token:str 
