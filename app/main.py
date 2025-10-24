@@ -10,6 +10,7 @@ scheduler = BackgroundScheduler()
 @app.on_event("startup")
 def on_startup():
     init_db()
+    cleanup_inactive_users()
     scheduler.add_job(cleanup_inactive_users, "interval", hours=1)
     scheduler.start()
 

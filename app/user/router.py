@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status,Security
-from app.model import Admin,Employee
+from app.model import Admin,Employee,LoginDetails
 from app.database import get_session
 from sqlmodel import Session, select
 from passlib.context import CryptContext
@@ -73,6 +73,17 @@ def login(form_data: loginDetail, session: Session = Depends(get_session)):
     if not user or not verify_password(form_data.password, user.password):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
     accessToken = create_access_token(data={"sub": user.email})
+    now = datetime.now()
+    login_entry = LoginDetails(
+        userEmail=user.email,
+        logInTime=now.time(),
+        dateOfLoginLogOut=now.date(),
+        token=accessToken
+    )
+
+    session.add(login_entry)
+    session.commit()
+    session.refresh(login_entry)
     return {"accessToken": accessToken, "tokenType": "bearer"}
 
 @user_app.post("/employee/creation")
@@ -90,9 +101,9 @@ def employee_creation(creation: employeeDetail,current_user: adminDetail = Secur
     else:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail="Admin is not logged in")
     
-@user_app.get("/admin/employee/list")
+@user_app.get("/admin/employee/list/isNotActive")
 def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
-    employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail)).first()
+    employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail,Admin.isActive==False)).first()
     if employee_or_admin:
         return{"Role": "Admin",
             "Details": {
@@ -102,8 +113,24 @@ def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
                 "phone_number": employee_or_admin.phoneNumber
             }}
     else:
-        employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail)).first()
+        employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail,Employee.isActive==False)).first()
         return{"Details":employee_or_admin}
+
+@user_app.get("/admin/employee/list/isActive")
+def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
+    employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail,Admin.isActive==True)).first()
+    if employee_or_admin:
+        return{"Role": "Admin",
+            "Details": {
+                "email": employee_or_admin.email,
+                "first_name": employee_or_admin.userFirstName,
+                "last_name": employee_or_admin.userLastName,
+                "phone_number": employee_or_admin.phoneNumber
+            }}
+    else:
+        employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail,Employee.isActive==True)).first()
+        return{"Details":employee_or_admin}
+
 
 @user_app.patch("/admin/profile/update")
 def admin_profile_update(data: adminUpdate,current_user: adminDetail = Security(get_current_user),session: Session = Depends(get_session)):
