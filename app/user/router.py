@@ -5,7 +5,7 @@ from sqlmodel import Session, select
 from passlib.context import CryptContext
 from datetime import datetime, timedelta
 from jose import jwt,JWTError
-from typing import Optional
+from typing import Optional,Type, List
 from fastapi.security import OAuth2PasswordBearer
 from app.user.schemas import adminDetail,tokenResponse,loginDetail,userUpdate,employeeDetail,adminUpdate
 
@@ -141,57 +141,173 @@ def view_employee_details(employeeEmail: str, session: Session = Depends(get_ses
         }
     }
 
-    
+def fetch_users(model: Type, session: Session, email: Optional[str] = None, isActive: Optional[bool] = None) -> List:
+    query = select(model)
+    if email:
+        query = query.filter(model.email == email)
+    if isActive is not None:
+        query = query.filter(model.isActive == isActive)
+    return session.exec(query).all()
+
+
 @user_app.get("/admin/employee/details")
 def admin_view_user_details(
-    userEmail: str,  
+    userEmail: Optional[str] = None,
+    allAdmin: Optional[bool] = None,
+    allEmployee: Optional[bool] = None,
+    all: Optional[bool] = None,
     isActive: Optional[bool] = None,
     current_user = Security(get_current_user),
     session: Session = Depends(get_session)
 ):
-    admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
-
-    if not admin:
+    
+    current_admin = fetch_users(Admin, session, email=current_user.email)
+    if not current_admin:
         raise HTTPException(status_code=403, detail="Only admin can access this endpoint")
-
-    if not admin.isActive:
+    if not current_admin[0].isActive:
         raise HTTPException(status_code=403, detail="Access denied. Admin account is not active.")
 
-    if userEmail is not None:
-        target_admin = session.exec(select(Admin).where(Admin.email == userEmail)).first()
-        if target_admin:
-
-            if isActive is not None and target_admin.isActive != isActive:
-                raise HTTPException(status_code=404, detail="Admin not found with requested active status")
-
+    if userEmail:
+        admins = fetch_users(Admin, session, email=userEmail)
+        if admins:
+            admin_data = admins[0]
             return {
                 "Role": "Admin",
                 "Details": {
-                    "email": target_admin.email,
-                    "first_name": target_admin.userFirstName,
-                    "last_name": target_admin.userLastName,
-                    "phone_number": target_admin.phoneNumber,
-                    "isActive": target_admin.isActive
+                    "email": admin_data.email,
+                    "first_name": admin_data.userFirstName,
+                    "last_name": admin_data.userLastName,
+                    "phone_number": admin_data.phoneNumber,
+                    "isActive": admin_data.isActive
                 }
             }
-    
-        query = select(Employee).where(Employee.email == userEmail)
-        if isActive is not None:
-            query = query.where(Employee.isActive == isActive)
 
-        employee = session.exec(query).first()
-        if employee:
+        employees = fetch_users(Employee, session, email=userEmail, isActive=isActive)
+        if employees:
+            emp_data = employees[0]
             return {
                 "Role": "Employee",
                 "Details": {
-                    "email": employee.email,
-                    "first_name": employee.userFirstName,
-                    "last_name": employee.userLastName,
-                    "phone_number": employee.phoneNumber,
-                    "isActive": employee.isActive
+                    "email": emp_data.email,
+                    "first_name": emp_data.userFirstName,
+                    "last_name": emp_data.userLastName,
+                    "phone_number": emp_data.phoneNumber,
+                    "isActive": emp_data.isActive
                 }
             }
+
         raise HTTPException(status_code=404, detail="No admin or employee found with the given email")
+
+    if allAdmin:
+        admins = fetch_users(Admin, session, isActive=isActive)
+        return {
+            "Role": "Admin",
+            "Count": len(admins),
+            "Details": [
+                {
+                    "email": a.email,
+                    "first_name": a.userFirstName,
+                    "last_name": a.userLastName,
+                    "phone_number": a.phoneNumber,
+                    "isActive": a.isActive
+                } for a in admins
+            ]
+        }
+    
+    if allEmployee:
+        employees = fetch_users(Employee, session, isActive=isActive)
+        return {
+            "Role": "Employee",
+            "Count": len(employees),
+            "Details": [
+                {
+                    "email": e.email,
+                    "first_name": e.userFirstName,
+                    "last_name": e.userLastName,
+                    "phone_number": e.phoneNumber,
+                    "isActive": e.isActive
+                } for e in employees
+            ]
+        }
+    
+    if all:
+        admins = fetch_users(Admin, session, isActive=isActive)
+        employees = fetch_users(Employee, session, isActive=isActive)
+        return {
+            "Admins_Count": len(admins),
+            "Employees_Count": len(employees),
+            "Admins": [
+                {
+                    "email": a.email,
+                    "first_name": a.userFirstName,
+                    "last_name": a.userLastName,
+                    "phone_number": a.phoneNumber,
+                    "isActive": a.isActive
+                } for a in admins
+            ],
+            "Employees": [
+                {
+                    "email": e.email,
+                    "first_name": e.userFirstName,
+                    "last_name": e.userLastName,
+                    "phone_number": e.phoneNumber,
+                    "isActive": e.isActive
+                } for e in employees
+            ]
+        }
+    raise HTTPException(status_code=400, detail="Please provide valid parameters (userEmail, allAdmin, allEmployee, or all)")
+
+    
+# @user_app.get("/admin/employee/details")
+# def admin_view_user_details(
+#     userEmail: str,  
+#     isActive: Optional[bool] = None,
+#     current_user = Security(get_current_user),
+#     session: Session = Depends(get_session)
+# ):
+#     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
+
+#     if not admin:
+#         raise HTTPException(status_code=403, detail="Only admin can access this endpoint")
+
+#     if not admin.isActive:
+#         raise HTTPException(status_code=403, detail="Access denied. Admin account is not active.")
+
+#     if userEmail is not None:
+#         target_admin = session.exec(select(Admin).where(Admin.email == userEmail)).first()
+#         if target_admin:
+
+#             if isActive is not None and target_admin.isActive != isActive:
+#                 raise HTTPException(status_code=404, detail="Admin not found with requested active status")
+
+#             return {
+#                 "Role": "Admin",
+#                 "Details": {
+#                     "email": target_admin.email,
+#                     "first_name": target_admin.userFirstName,
+#                     "last_name": target_admin.userLastName,
+#                     "phone_number": target_admin.phoneNumber,
+#                     "isActive": target_admin.isActive
+#                 }
+#             }
+    
+#         query = select(Employee).where(Employee.email == userEmail)
+#         if isActive is not None:
+#             query = query.where(Employee.isActive == isActive)
+
+#         employee = session.exec(query).first()
+#         if employee:
+#             return {
+#                 "Role": "Employee",
+#                 "Details": {
+#                     "email": employee.email,
+#                     "first_name": employee.userFirstName,
+#                     "last_name": employee.userLastName,
+#                     "phone_number": employee.phoneNumber,
+#                     "isActive": employee.isActive
+#                 }
+#             }
+#         raise HTTPException(status_code=404, detail="No admin or employee found with the given email")
 
 # @user_app.get("/admin/employee/list/isNotActive")
 # def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
