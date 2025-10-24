@@ -115,20 +115,16 @@ def employee_creation(creation: employeeDetail,current_user: adminDetail = Secur
     
 @user_app.get("/employee/details")
 def view_employee_details(employeeEmail: str, session: Session = Depends(get_session)):
-    # Find employee by email
     employee = session.exec(
         select(Employee).where(Employee.email == employeeEmail)
     ).first()
 
-    # If not found → 404
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
 
-    # If inactive → deny access
     if not employee.isActive:
         raise HTTPException(status_code=403, detail="Access denied. Employee account is not active.")
 
-    # If active → show details
     return {
         "Role": "Employee",
         "Details": {
@@ -256,89 +252,6 @@ def admin_view_user_details(
             ]
         }
     raise HTTPException(status_code=400, detail="Please provide valid parameters (userEmail, allAdmin, allEmployee, or all)")
-
-    
-# @user_app.get("/admin/employee/details")
-# def admin_view_user_details(
-#     userEmail: str,  
-#     isActive: Optional[bool] = None,
-#     current_user = Security(get_current_user),
-#     session: Session = Depends(get_session)
-# ):
-#     admin = session.exec(select(Admin).where(Admin.email == current_user.email)).first()
-
-#     if not admin:
-#         raise HTTPException(status_code=403, detail="Only admin can access this endpoint")
-
-#     if not admin.isActive:
-#         raise HTTPException(status_code=403, detail="Access denied. Admin account is not active.")
-
-#     if userEmail is not None:
-#         target_admin = session.exec(select(Admin).where(Admin.email == userEmail)).first()
-#         if target_admin:
-
-#             if isActive is not None and target_admin.isActive != isActive:
-#                 raise HTTPException(status_code=404, detail="Admin not found with requested active status")
-
-#             return {
-#                 "Role": "Admin",
-#                 "Details": {
-#                     "email": target_admin.email,
-#                     "first_name": target_admin.userFirstName,
-#                     "last_name": target_admin.userLastName,
-#                     "phone_number": target_admin.phoneNumber,
-#                     "isActive": target_admin.isActive
-#                 }
-#             }
-    
-#         query = select(Employee).where(Employee.email == userEmail)
-#         if isActive is not None:
-#             query = query.where(Employee.isActive == isActive)
-
-#         employee = session.exec(query).first()
-#         if employee:
-#             return {
-#                 "Role": "Employee",
-#                 "Details": {
-#                     "email": employee.email,
-#                     "first_name": employee.userFirstName,
-#                     "last_name": employee.userLastName,
-#                     "phone_number": employee.phoneNumber,
-#                     "isActive": employee.isActive
-#                 }
-#             }
-#         raise HTTPException(status_code=404, detail="No admin or employee found with the given email")
-
-# @user_app.get("/admin/employee/list/isNotActive")
-# def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
-#     employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail,Admin.isActive==False)).first()
-#     if employee_or_admin and Security(get_current_user) :
-#         return{"Role": "Admin",
-#             "Details": {
-#                 "email": employee_or_admin.email,
-#                 "first_name": employee_or_admin.userFirstName,
-#                 "last_name": employee_or_admin.userLastName,
-#                 "phone_number": employee_or_admin.phoneNumber
-#             }}
-#     else:
-#         employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail,Employee.isActive==False)).first()
-#         return{"Details":employee_or_admin}
-
-# @user_app.get("/admin/employee/list/isActive")
-# def employee_lis(adminOrEmployeeEmail:str,session:Session=Depends(get_session)):
-#     employee_or_admin = session.exec(select(Admin).where(Admin.email == adminOrEmployeeEmail,Admin.isActive==True)).first()
-#     if employee_or_admin and Security(get_current_user):
-#         return{"Role": "Admin",
-#             "Details": {
-#                 "email": employee_or_admin.email,
-#                 "first_name": employee_or_admin.userFirstName,
-#                 "last_name": employee_or_admin.userLastName,
-#                 "phone_number": employee_or_admin.phoneNumber
-#             }}
-#     else:
-#         employee_or_admin = session.exec(select(Employee).where(Employee.email == adminOrEmployeeEmail,Employee.isActive==True)).first()
-#         return{"Details":employee_or_admin}
-
 
 @user_app.patch("/admin/profile/update")
 def admin_profile_update(data: adminUpdate,current_user: adminDetail = Security(get_current_user),session: Session = Depends(get_session)):
