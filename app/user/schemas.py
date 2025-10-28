@@ -9,7 +9,7 @@ class loginDetail(BaseModel):
     email:str
     password:str
 
-class adminDetail(BaseModel):
+class userDetail(BaseModel):
     userFirstName: str
     userLastName : str
     designation: str
@@ -17,15 +17,7 @@ class adminDetail(BaseModel):
     email:str
     address: Optional[str]=None
     phoneNumber: str
-    isSuperUser: bool 
-
-class employeeDetail(BaseModel):
-    userFirstName: str
-    userLastName : str
-    designation: str
-    email: str
-    address: Optional[str]=None
-    phoneNumber: str
+    isSuperUser: Optional[bool] = None 
 
 class userUpdate(BaseModel):
     email:Optional[str] = None
@@ -34,12 +26,4 @@ class userUpdate(BaseModel):
     address: Optional[str] = None
     phoneNumber: Optional[str] = None
     designation: Optional[str] = None
-
-class adminUpdate(BaseModel):
-    email: Optional[str] = None
-    userFirstName: Optional[str] = None
-    userLastName : Optional[str] = None
-    address: Optional[str] = None
-    phoneNumber: Optional[str] = None
-    designation: Optional[str] = None
-    password:Optional[str]=None
+    password:Optional[str] = None

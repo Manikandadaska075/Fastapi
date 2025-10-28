@@ -2,7 +2,7 @@ from sqlmodel import SQLModel, Field
 from typing import *
 from datetime import time, date , datetime
 
-class Admin(SQLModel, table=True):
+class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     userFirstName: str
     userLastName : str 
@@ -13,17 +13,6 @@ class Admin(SQLModel, table=True):
     phoneNumber: str
     isActive: bool = True
     isSuperUser: bool = False 
-    scheduledDeletion: Optional[datetime] = None
-
-class Employee(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    userFirstName: str
-    userLastName : str
-    designation : str
-    email: str
-    address: Optional[str] = None
-    phoneNumber:str
-    isActive: bool = True
     scheduledDeletion: Optional[datetime] = None
 
 class LoginDetails(SQLModel, table=True):
