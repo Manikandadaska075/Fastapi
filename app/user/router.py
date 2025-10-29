@@ -325,6 +325,8 @@ def admin_or_employee_delete(adminOrEmployeeEmail: str,current_user: userDetail 
     if not admin.isSuperUser:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin can only delete the user")
     record = session.exec(select(User).where(User.email == adminOrEmployeeEmail)).first()
+    if not record.isActive:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"admin or employee is not active : {adminOrEmployeeEmail}")
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No admin or employee found with email: {adminOrEmployeeEmail}")
     record.isActive = False
