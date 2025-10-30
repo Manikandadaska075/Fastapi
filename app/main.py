@@ -13,7 +13,7 @@ def on_startup():
     cleanup_inactive_users()
     update_logout_time()
     scheduler.add_job(update_logout_time, "interval", minutes=2)
-    scheduler.add_job(cleanup_inactive_users, "interval", hours=1)
+    scheduler.add_job(cleanup_inactive_users, "interval", hours = 1)
     scheduler.start()
 
 @app.on_event("shutdown")

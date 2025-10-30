@@ -3,7 +3,7 @@ from app.model import User, LoginDetails
 from app.database import get_session
 from sqlmodel import Session, select, and_
 from passlib.context import CryptContext
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from jose import jwt, JWTError, ExpiredSignatureError
 from typing import Optional
 from fastapi.security import OAuth2PasswordBearer
@@ -23,7 +23,7 @@ def hash_password(password: str) -> str:
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     to_encode = data.copy()
-    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
+    expire = datetime.now(timezone.utc) + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire}) 
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
@@ -113,7 +113,17 @@ def employee_creation(creation: userDetail,current_user: User = Security(get_cur
     session.add(employee)
     session.commit()
     session.refresh(employee)
-    return {"message": "Employee created successfully", "employee": employee}
+    return {"message": "Employee created successfully", "employee": 
+            {
+                "email": employee.email,
+                "first_name": employee.userFirstName,
+                "last_name": employee.userLastName,
+                "phone_number": employee.phoneNumber,
+                "address": employee.address,
+                "isActive": employee.isActive,
+                "isSuperUser": employee.isSuperUser,
+            }
+        }
 
 @user_app.get("/employee/details")
 def view_employee_details(current_user: User = Security(get_current_user), session: Session = Depends(get_session)):
@@ -130,7 +140,8 @@ def view_employee_details(current_user: User = Security(get_current_user), sessi
             "last_name": employee.userLastName,
             "phone_number": employee.phoneNumber,
             "address": employee.address,
-            "isActive": employee.isActive
+            "isActive": employee.isActive,
+            "designation":employee.designation
         }
     }
 
@@ -278,12 +289,21 @@ def admin_profile_update(data: userUpdate, current_user: User = Security(get_cur
 
     for key, value in update_data.items():
         setattr(admin, key, value)
-
     session.add(admin)
     session.commit()
     session.refresh(admin)
 
-    return {"message": "Admin profile updated successfully", "admin": admin}
+    return {"message": "Admin profile updated successfully", "admin": 
+            {
+                "email": admin.email,
+                "first_name": admin.userFirstName,
+                "last_name": admin.userLastName,
+                "phone_number": admin.phoneNumber,
+                "address": admin.address,
+                "isActive": admin.isActive,
+                "isSuperUser": admin.isSuperUser
+            }
+        }
 
 @user_app.patch("/employee/profile/update")
 def employee_profile_update( data: userUpdate, employeeEmail: Optional[str] =None, current_user: userDetail = Security(get_current_user),
@@ -313,7 +333,17 @@ def employee_profile_update( data: userUpdate, employeeEmail: Optional[str] =Non
     session.add(employee)
     session.commit()
     session.refresh(employee)
-    return {"message": "Profile updated successfully", "employee": employee}
+    return {"message": "Profile updated successfully", "employee": 
+            {
+                "email": employee.email,
+                "first_name": employee.userFirstName,
+                "last_name": employee.userLastName,
+                "phone_number": employee.phoneNumber,
+                "address": employee.address,
+                "isActive": employee.isActive,
+                "isSuperUser": employee.isSuperUser
+            }
+        }
 
 @user_app.delete("/admin/employee/deletion")
 def admin_or_employee_delete(adminOrEmployeeEmail: str,current_user: userDetail = Security(get_current_user),
@@ -325,10 +355,10 @@ def admin_or_employee_delete(adminOrEmployeeEmail: str,current_user: userDetail 
     if not admin.isSuperUser:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Admin can only delete the user")
     record = session.exec(select(User).where(User.email == adminOrEmployeeEmail)).first()
-    if not record.isActive:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"admin or employee is not active : {adminOrEmployeeEmail}")
     if not record:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"No admin or employee found with email: {adminOrEmployeeEmail}")
+    if not record.isActive:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"admin or employee is not active : {adminOrEmployeeEmail}")
     record.isActive = False
     record.scheduledDeletion = datetime.now() + timedelta(hours=3)
     session.add(record)
